@@ -1,0 +1,230 @@
+# BGMI-max
+
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D Battle Arena</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  font-family: Arial;
+  background: #87ceeb;
+}
+#hud {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px black;
+  z-index: 2;
+}
+#controls {
+  position: fixed;
+  bottom: 25px;
+  left: 20px;
+  z-index: 2;
+}
+button {
+  padding: 15px 20px;
+  margin: 4px;
+  border: 0;
+  border-radius: 12px;
+  background: #263b42;
+  color: white;
+  font-size: 18px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="hud">
+  BATTLE ARENA 3D<br>
+  <span id="status">READY!</span>
+</div>
+
+<div id="controls">
+  <button onclick="move('left')">⬅️</button>
+  <button onclick="move('forward')">⬆️</button>
+  <button onclick="move('back')">⬇️</button>
+  <button onclick="move('right')">➡️</button>
+  <button onclick="jump()">JUMP</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 30, 100);
+
+const camera = new THREE.PerspectiveCamera(
+  70, window.innerWidth/window.innerHeight, 0.1, 1000
+);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+// LIGHT
+scene.add(new THREE.HemisphereLight(0xffffff,0x445533,2));
+
+const sun = new THREE.DirectionalLight(0xffffff,2);
+sun.position.set(10,20,10);
+sun.castShadow = true;
+scene.add(sun);
+
+// GROUND
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(200,200),
+  new THREE.MeshStandardMaterial({color:0x397d35})
+);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+// PLAYER
+const player = new THREE.Group();
+scene.add(player);
+
+const body = new THREE.Mesh(
+  new THREE.BoxGeometry(0.8,1.3,0.5),
+  new THREE.MeshStandardMaterial({color:0x244b75})
+);
+body.position.y = 1.3;
+body.castShadow = true;
+player.add(body);
+
+const head = new THREE.Mesh(
+  new THREE.SphereGeometry(0.35,24,24),
+  new THREE.MeshStandardMaterial({color:0xffc18c})
+);
+head.position.y = 2.2;
+player.add(head);
+
+// LEGS
+const legs = [];
+for(let i=0;i<2;i++){
+  const leg = new THREE.Mesh(
+    new THREE.BoxGeometry(0.25,0.8,0.3),
+    new THREE.MeshStandardMaterial({color:0x202020})
+  );
+  leg.position.set(i===0?-0.22:0.22,0.4,0);
+  player.add(leg);
+  legs.push(leg);
+}
+
+// ARM
+const arm = new THREE.Mesh(
+  new THREE.BoxGeometry(0.25,0.9,0.25),
+  new THREE.MeshStandardMaterial({color:0xffc18c})
+);
+arm.position.set(0.55,1.5,0);
+player.add(arm);
+
+// TREES
+for(let i=0;i<35;i++){
+  const x = Math.random()*100-50;
+  const z = Math.random()*100-50;
+
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.2,0.3,2),
+    new THREE.MeshStandardMaterial({color:0x654321})
+  );
+  trunk.position.set(x,1,z);
+  scene.add(trunk);
+
+  const leaves = new THREE.Mesh(
+    new THREE.ConeGeometry(1.5,3,8),
+    new THREE.MeshStandardMaterial({color:0x145c22})
+  );
+  leaves.position.set(x,3,z);
+  scene.add(leaves);
+}
+
+// CAMERA
+camera.position.set(0,5,8);
+camera.lookAt(player.position);
+
+// MOVEMENT
+let speed = 0.25;
+let jumping = false;
+let velocity = 0;
+let moving = false;
+
+function move(direction){
+  moving = true;
+  if(direction==="left") player.position.x -= speed;
+  if(direction==="right") player.position.x += speed;
+  if(direction==="forward") player.position.z -= speed;
+  if(direction==="back") player.position.z += speed;
+
+  document.getElementById("status").innerText="PLAYING";
+}
+
+function jump(){
+  if(!jumping){
+    jumping=true;
+    velocity=0.25;
+  }
+}
+
+// ANIMATION
+let clock = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  const t = clock.getElapsedTime();
+
+  // Walking animation
+  legs[0].rotation.x = Math.sin(t*8)*0.5;
+  legs[1].rotation.x = -Math.sin(t*8)*0.5;
+
+  // Jump animation
+  if(jumping){
+    player.position.y += velocity;
+    velocity -= 0.012;
+
+    if(player.position.y <= 0){
+      player.position.y=0;
+      jumping=false;
+      velocity=0;
+    }
+  }
+
+  // Follow camera
+  camera.position.x +=
+    (player.position.x-camera.position.x)*0.08;
+
+  camera.position.z +=
+    (player.position.z+8-camera.position.z)*0.08;
+
+  camera.lookAt(
+    player.position.x,
+    player.position.y+1,
+    player.position.z
+  );
+
+  renderer.render(scene,camera);
+}
+
+animate();
+
+// RESIZE
+window.addEventListener("resize",()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+</script>
+
+</body>
+</html>
